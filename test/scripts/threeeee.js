@@ -1,5 +1,5 @@
 
-// import Component from '../../src/Component.js'
+import Component from '../../src/Component.js'
 // import Component from '../../build/Component.min.js'
 import html from '../html.js'
 import * as U from './utils.js'
