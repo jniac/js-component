@@ -100,7 +100,7 @@ const bindPrototype = (constructor, parent, props) => {
 
 const define = (definitionName, definition) => {
 
-    let [identifier, parentIdentifier] = definitionName.split('::')
+    let [identifier, parentIdentifier] = definitionName.split(/\s*::\s*/)
 
     let parent = namespace.search(parentIdentifier) || Component
 
@@ -167,6 +167,14 @@ Component.super = new Proxy({}, {
 
 })
 
+Component.new = (identifier, ...args) => {
+
+    let constructor = namespace.search(identifier)
+
+    return new constructor(...args)
+
+}
+
 getter(Component, {
 
     dict: () => namespace.dict,
@@ -178,7 +186,7 @@ Object.defineProperties(Component, {
     namespace: {
 
         enumerable: true,
-        get: () => namespace.currentNamespace,
+        get: () => namespace,
         set: value => namespace.currentNamespace = value,
 
     },
