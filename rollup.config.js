@@ -1,8 +1,5 @@
 // import path from 'path'
 import fs from 'fs'
-import minify from 'rollup-plugin-babel-minify'
-
-let minified = process.argv.includes('--min')
 
 function date() {
 
@@ -43,24 +40,25 @@ function banner() {
 
 }
 
-export default minified
-	? {
-		input: './src/Component.js',
-		plugins: [minify()],
-		sourceMap: true,
-		output: [
-			{
-				format: 'es',
-				file: 'build/Component.min.js',
-			}
-		],
-	}
-	: {
-		input: './src/Component.js',
-		output: [{
+export default {
+	input: './src/Component.js',
+	plugins: [
+		babel(),
+	],
+	// external: [path.resolve('./src/event.js')],
+	// sourceMap: true,
+	output: [
+		// {
+		// 	format: 'umd',
+		// 	name: 'timeline',
+		// 	file: 'build/timeline.bundle.js',
+		// 	indent: '\t'
+		// },
+		{
 			format: 'es',
 			file: 'build/Component.js',
-			banner: banner(),
+			// banner: banner(),
 			indent: '\t'
-		}],
-	}
+		}
+	]
+}

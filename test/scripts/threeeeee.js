@@ -1,8 +1,7 @@
 
-// import Component from '../../src/Component.js'
-// import Component from '../../build/Component.min.js'
-import html from '../html.js'
-import * as U from './utils.js'
+import Component from '../../src/Component.js'
+import html from '../files/html.js'
+import * as U from '../files/utils.js'
 
 export { Component, html }
 
@@ -37,9 +36,11 @@ let animate = function () {
 animate()
 
 
-export let Info = Component.Def({
 
-    Component: 'Info',
+
+Component.namespace = 'info'
+
+export let info = new (Component.define('Info', {
 
     start() {
 
@@ -53,29 +54,37 @@ export let Info = Component.Def({
 
         let { pre } = this.props
 
-        pre.innerHTML = `n Component: ${Component.instances.size}`
+        let object = {}
+
+        for (let instance of Component.instances) {
+
+            let k = instance.constructor.identifier
+
+            k in object ? object[k]++ : object[k] = 1
+
+        }
+
+        let details = Object.entries(object).map(([name, count]) => name + ': ' + count).join('\n')
+
+        pre.innerHTML = `n Component: ${Component.instances.size}\n\n` + details
 
     },
 
-})
+}))
 
-export let info = new Info()
 
-let components = new Set()
 
-export let SupaLight = Component.Def({
+Component.namespace = 'threeeeee'
 
-    Component: 'SupaLight',
+export let SupaLight = Component.define('SupaLight', {
 
     static: {
 
-
+        sphere: new THREE.SphereBufferGeometry(0.0625, 16, 8),
 
     },
 
     start(color = '#ff0040', { x = 0, y = 0, z = 0 } = {}, radius = 3, speed = 1) {
-
-        components.add(this)
 
         let object3D = new THREE.Object3D()
         object3D.position.set(x, y, z)
@@ -84,11 +93,12 @@ export let SupaLight = Component.Def({
 
         let light = new THREE.PointLight(color, 2, 50)
         light.position.set(radius, 0, 0)
-        // light.add(new THREE.Mesh(SupaLight.sphere, new THREE.MeshBasicMaterial({ color })))
-        light.add(new THREE.Mesh(new THREE.SphereBufferGeometry(0.0625, 16, 8), new THREE.MeshBasicMaterial({ color })))
+        light.add(new THREE.Mesh(SupaLight.sphere, new THREE.MeshBasicMaterial({ color })))
         object3D.add(light)
 
         this.setProps({ object3D, light, radius, speed })
+
+        info.forceUpdate()
 
     },
 
@@ -98,17 +108,17 @@ export let SupaLight = Component.Def({
 
         object3D.rotation.y += .05 * speed / radius
 
-        return true
+        return Component.DIRTY
 
     },
 
-    destroy() {
+    onDestroy() {
 
         let { object3D } = this.props
 
         scene.remove(object3D)
 
-        components.delete(this)
+        info.forceUpdate()
 
     },
 
@@ -116,13 +126,9 @@ export let SupaLight = Component.Def({
 
 new SupaLight()
 
-export let SupaCube = Component.Def({
-
-    Component: 'SupaCube',
+export let SupaCube = Component.define('SupaCube', {
 
     start() {
-
-        components.add(this)
 
         let geometry = new THREE.BoxGeometry(1, 1, 1)
         let material = new THREE.MeshPhongMaterial({ color: U.randomColor() })
@@ -152,11 +158,11 @@ export let SupaCube = Component.Def({
         cube.rotation.y += v.y * dt
         cube.rotation.z += v.z * dt
 
-        return true
+        return Component.DIRTY
 
     },
 
-    destroy() {
+    onDestroy() {
 
         let { cube } = this.props
 
@@ -164,37 +170,33 @@ export let SupaCube = Component.Def({
 
         info.forceUpdate()
 
-        components.delete(this)
-
     }
+
+})
+
+
+
+Component.namespace = 'ui'
+
+export let Button = Component.define('Button', {
+
+    start(label, onclick) {
+
+        this.element = html.button.style({ height: '30px' })(label).appendTo(stage)
+        this.element.onclick = onclick
+
+    },
 
 })
 
 for (let i = 0; i < 100; i++)
     new SupaCube()
 
-
+html.br().appendTo(stage)
+new Button('CLEAR SupaCubes', () => SupaCube.all.destroy())
+new Button('CLEAR SupaLights', () => SupaLight.all.destroy())
+new Button('CLEAR  Both', () => SupaCube.all.union(SupaLight.all).destroy())
 
 html.br().appendTo(stage)
-
-let fooButton = html.button.style({ height: '30px' })('new SupaCube()').appendTo(stage)
-
-fooButton.onclick = () => new SupaCube()
-
-
-let lightButton = html.button.style({ height: '30px' })('new SupaLight()').appendTo(stage)
-
-lightButton.onclick = () => new SupaLight(U.randomColor(), U.randomXYZ(), U.random(1, 30), U.random())
-
-
-
-
-
-let clearButton = html.button.style({ height: '30px' })('clear').appendTo(stage)
-
-clearButton.onclick = () => {
-
-    for (let c of components)
-        c.destroy()
-
-}
+new Button('new SupaCube()', () => new SupaCube)
+new Button('new SupaLight({ random })', () => new SupaLight(U.randomColor(), U.randomXYZ(), U.random(1, 10), U.random()))

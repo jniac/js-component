@@ -1,556 +1,471 @@
-/*
+const readonly = (target, props, {
+  enumerable = true,
+  configurable = true
+} = {}) => {
+  for (let [key, value] of Object.entries(props)) {
+    Object.defineProperty(target, key, {
+      value,
+      enumerable,
+      configurable
+    });
+  }
 
-	Component.js
-	2018-09-13 10:57 GMT(+2)
-	https://github.com/jniac/js-component
-
-	MIT License
-	
-	Copyright (c) 2018 Joseph Merdrignac
-	
-	Permission is hereby granted, free of charge, to any person obtaining a copy
-	of this software and associated documentation files (the "Software"), to deal
-	in the Software without restriction, including without limitation the rights
-	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	copies of the Software, and to permit persons to whom the Software is
-	furnished to do so, subject to the following conditions:
-	
-	The above copyright notice and this permission notice shall be included in all
-	copies or substantial portions of the Software.
-	
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	SOFTWARE.
-
-*/
-
-const readonly = (target, props, { enumerable = true, configurable = true } = {}) => {
-
-    for (let [key, value] of Object.entries(props)) {
-
-        Object.defineProperty(target, key, { value, enumerable, configurable });
-
-    }
-
-    return target
-
+  return target;
 };
 
-const getter = (target, props, { enumerable = true, configurable = true } = {}) => {
-
-    for (let [key, get] of Object.entries(props)) {
-
-        Object.defineProperty(target, key, { get, enumerable, configurable });
-
-    }
-
+const getter = (target, props, {
+  enumerable = true,
+  configurable = true
+} = {}) => {
+  for (let [key, get] of Object.entries(props)) {
+    Object.defineProperty(target, key, {
+      get,
+      enumerable,
+      configurable
+    });
+  }
 };
 
-const getLineage = (target, descending = true) => {
+// let { a, b, ...rest } = object
+// <=>
+// let [a, b, rest] = extract(object, 'a', 'b')
 
-    let array = [target];
 
-    while(target = target.parent)
-        descending ? array.unshift(target) : array.push(target);
+const extract = (object, ...keys) => {
+  let result = new Array(keys.length);
+  let rest = {};
 
-    return array
+  for (let key in object) {
+    let index = keys.indexOf(key);
 
+    if (index >= 0) {
+      result[index] = object[key];
+    } else {
+      rest[key] = object[key];
+    }
+  }
+
+  result.push(rest);
+  return result;
 };
 
+function Average({
+  length = 10,
+  value = 0
+} = {}) {
+  let array = new Array(length);
 
-function Average({ length = 10, value = 0 } = {}) {
+  for (let i = 0; i < length; i++) array[i] = value;
 
-    let array = new Array(length);
+  let index = 0;
+  let sum = value * length,
+      average = value;
 
-    for (let i = 0; i < length; i++)
-		array[i] = value;
+  let next = number => {
+    sum += number - array[index];
+    array[index] = number;
+    average = sum / length;
+    index++;
+    if (index === length) index = 0;
+    return average;
+  };
 
-    let index = 0;
+  return {
+    next,
 
-    let sum = value * length, average = value;
+    get array() {
+      return [...array];
+    },
 
-    let next = number => {
+    get index() {
+      return index;
+    },
 
-        sum += number - array[index];
-		array[index] = number;
-		average = sum / length;
+    get sum() {
+      return sum;
+    },
 
-		index++;
-
-        if (index === length)
-            index = 0;
-
-		return average
-
-    };
-
-	return {
-
-		next,
-		get array() { return [...array] },
-		get index() { return index },
-		get sum() { return sum },
-		get average() { return average },
-
+    get average() {
+      return average;
     }
 
+  };
 }
 
-const isMethodDefinition = (method) => {
+let currentNamespace = null;
+let dict = {};
 
-    if (typeof method === 'function')
-        return true
+const splitIdentifier = identifier => identifier.split(':').reverse();
 
-    if (typeof method === 'object' && 'method' in method)
-        return true
+const buildIdentifier = (name, namespace = currentNamespace) => namespace ? namespace + ':' + name : name;
 
-    return false
+const safeIdentifier = identifier => buildIdentifier(...splitIdentifier(identifier));
 
+let get = identifier => dict[safeIdentifier(identifier)];
+
+let search = identifier => {
+  if (!identifier) return null;
+  if (dict.hasOwnProperty(identifier)) return dict[identifier];
+  let [name, namespace] = splitIdentifier(identifier);
+  if (namespace) return null;
+  identifier = buildIdentifier(currentNamespace, name);
+  if (dict.hasOwnProperty(identifier)) return dict[identifier];
+
+  for (let [currentIdentifier, value] of Object.entries(dict)) {
+    let [currentName, currentNamespace] = splitIdentifier(currentIdentifier);
+    if (currentName === name) return value;
+  }
+
+  return null;
 };
 
-const getPrototypeMethod = (type, key) => {
+let getAvailableIdentifier = identifier => {
+  identifier = safeIdentifier(identifier);
+  if (!dict.hasOwnProperty(identifier)) return identifier;
+  let base = identifier;
+  let index = 1;
 
-    let array = [];
+  do {
+    identifier = base + '_' + index++;
+  } while (dict.hasOwnProperty(identifier));
 
-    let reverse = false;
+  return identifier;
+};
 
-    for (let currentType of getLineage(type)) {
+let set = (identifier, value) => {
+  identifier = safeIdentifier(identifier);
+  dict[identifier] = value;
+};
 
-        if (key in currentType.methods) {
+let add = (identifier, value) => {
+  identifier = getAvailableIdentifier(identifier);
+  dict[identifier] = value;
+  return identifier;
+};
 
-            let currentMethod = currentType.methods[key];
+let register = {
+  get,
+  search,
+  getAvailableIdentifier,
+  set,
+  add,
+  dict,
 
-            let {
+  get currentNamespace() {
+    return currentNamespace;
+  },
 
-                final = false,
-                override = false,
-
-            } = currentMethod;
-
-            if (array.length === 0 && 'reverse' in currentMethod)
-                reverse = currentMethod.reverse;
-
-            if (override)
-                array = [];
-
-            array.push(typeof currentMethod === 'function' ? currentMethod : currentMethod.method);
-
-            if (final)
-                break
-
-        }
-
-    }
-
-    // single
-
-    if (array.length === 1) {
-
-        let [method] = array;
-
-        return function(...args) {
-
-            if (this.destroyed)
-                return this
-
-            let result = method.apply(this, args);
-
-            // return {this} by default, for chaining
-            return result === undefined ? this : result
-
-        }
-
-    }
-
-    // multiple
-
-    if (reverse)
-        array.reverse();
-
-    return function (...args) {
-
-        if (this.destroyed)
-            return this
-
-        let result;
-
-        for (let method of array) {
-
-            let currentResult = method.apply(this, args);
-
-            if (currentResult !== undefined)
-                result = currentResult;
-
-        }
-
-        // return {this} by default, for chaining
-        return result === undefined ? this : result
-
-    }
+  set currentNamespace(value) {
+    currentNamespace = value;
+  }
 
 };
 
 let instances = new Set();
-
-let counter = 0;
-let frame = 0;
+let dirtyInstances = new Set();
+let stillDirtyInstances = new Set();
+let instanceCounter = 0;
 
 const newInstance = (instance, args) => {
+  instances.add(instance);
+  readonly(instance, {
+    uid: instanceCounter++,
+    props: {},
+    state: {}
+  });
+  instance.start(...args);
+};
 
-    readonly(instance, { uid:counter++ });
+const destroyInstance = (instance, fromBasePrototype = false) => {
+  if (fromBasePrototype === false) instance.destroy();
+  readonly(instance, {
+    destroyed: true,
+    props: null,
+    state: null
+  });
+  instances.delete(instance);
+};
 
-    for(let type of getLineage(instance.type)) {
-
-        type.constructor.apply(instance, args);
-
-    }
-
+const setDirty = instance => {
+  if (locked === false) {
     instance.dirty = true;
-    instance.start(...args);
+    dirtyInstances.add(instance);
+  } else {
+    onPostUpdate(() => setDirty(instance));
+  }
+};
 
-    instances.add(instance);
+let locked = false;
+
+const isLocked = () => locked;
+
+let onUpdateSet = new Set();
+let onPostUpdateSet = new Set();
+
+const onPostUpdate = callback => onPostUpdateSet.add(callback);
+
+let updateAverage = new Average(60);
+let frame = 0;
+
+const update = () => {
+  requestAnimationFrame(update);
+  let t = performance.now();
+
+  for (let callback of onUpdateSet) {
+    callback();
+  }
+
+  locked = true;
+
+  for (let instance of dirtyInstances) {
+    let stillDirty = instance.update() === Component.DIRTY;
+
+    if (stillDirty) {
+      stillDirtyInstances.add(instance);
+    } else {
+      instance.dirty = false;
+    }
+  }
+
+  for (let instance of dirtyInstances) {
+    instance.postUpdate();
+  }
+
+  dirtyInstances.clear(); // permutation
+
+  let tmp = stillDirtyInstances;
+  stillDirtyInstances = dirtyInstances;
+  dirtyInstances = tmp;
+  locked = false;
+
+  for (let callback of onPostUpdateSet) {
+    callback();
+  }
+
+  frame++;
+  updateAverage.next(performance.now() - t);
+};
+
+update();
+var lifecycle = {
+  instances,
+  dirtyInstances,
+  onUpdateSet,
+  onPostUpdateSet,
+  newInstance,
+  destroyInstance,
+  setDirty,
+  isLocked,
+  updateAverage,
+
+  get frame() {
+    return frame;
+  }
 
 };
 
-const destroyInstance = (instance) => {
+var basePrototype = {
+  set(props) {
+    Object.assign(this, props);
+  },
 
-    instances.delete(instance);
+  start() {},
 
-};
+  destroy() {// a chance to intercept the will of destruction!
+  },
 
-let lateUpdateSet = new Set();           // instances inside
-let postUpdateSet = new Set();           // callbacks inside
+  onDestroy() {
+    // onDestroy is always called
+    lifecycle.destroyInstance(this, true);
+  },
 
-const postUpdate = callback => postUpdateSet.add(callback);
+  setDirty() {
+    lifecycle.setDirty(this);
+  },
 
-let currentUpdateComponent;
-const isLocked = instance => currentUpdateComponent === instance;
+  update() {// update the component here
+  },
 
-let frameAverage = new Average({ length:60 });
+  postUpdate() {// cf. lateUpate (Unity)
+  },
 
-const frameUpdate = () => {
+  setProps(propsChunk) {
+    // props do not affect dirty state...
+    Object.assign(this.props, propsChunk);
+  },
 
-    let t = performance.now();
+  setState(stateChunk, {
+    compare = true
+  } = {}) {
+    // ... but the state does!
+    // only if 'compare' === true
+    if (lifecycle.isLocked()) {
+      lifecycle.onPostUpdate(() => this.setState(stateChunk, {
+        compare
+      }));
+      return;
+    }
 
-    requestAnimationFrame(frameUpdate);
+    let {
+      state
+    } = this;
 
-
-
-    // UPDATE
-    for (let instance of instances) {
-
-        if (instance.dirty) {
-
-            currentUpdateComponent = instance;
-
-            instance.dirty = instance.update() === true;
-
-            lateUpdateSet.add(instance);
-
+    if (compare) {
+      for (let [key, value] of Object.entries(stateChunk)) {
+        if (state[key] !== value) {
+          state[key] = value;
+          lifecycle.setDirty(this);
         }
+      }
+    } else {
+      Object.assign(state, stateChunk);
+      lifecycle.setDirty(this);
+    }
+  }
 
+};
+
+const crawl = (set, key, args, proxy) => {
+  for (let instance of set) {
+    if (key in instance) {
+      instance[key].apply(instance, args);
+    }
+  }
+
+  return proxy;
+};
+
+function Collection(instances) {
+  let set = new Set(instances);
+  let proxy = new Proxy({}, {
+    get(target, key) {
+      if (key in set) return set[key].bind(set);
+      return (...args) => crawl(set, key, args, proxy);
     }
 
-    currentUpdateComponent = null;
+  });
+  return proxy;
+}
 
-    for (let callback of postUpdateSet)
-        callback();
+const getConstructor = (name, newInstance) => new Function('newInstance', `return function ${name} (){ newInstance(this, arguments) }`)(newInstance);
 
-    postUpdateSet.clear();
-
-    // LATE UPDATE
-    for (let instance of lateUpdateSet) {
-
-        instance.lateUpdate();
-
-    }
-
-    lateUpdateSet.clear();
-
-
-
-    frameAverage.next(performance.now() - t);
-
-    frame++;
-
+const isMethodDefinition = method => {
+  if (typeof method === 'function') return true;
+  if (typeof method === 'object' && 'method' in method) return true;
+  return false;
 };
 
-frameUpdate();
+const extractMethod = value => {
+  if (typeof value === 'function') return value; // let { method, ...props } = value
 
-// [name, constructor]
-let types = {};
-let typeCounter = 0;
-
-// [constructor, type]
-let typeMap = new Map();
-
-const newType = (name = 'Component') => {
-
-    if (name in types) {
-
-        let base = name;
-        let index = 1;
-
-        do {
-
-            name = `${base}_${index++}`;
-
-        } while (name in types)
-
-    }
-
-    let type = readonly({}, {
-
-        uid: typeCounter++,
-        name,
-        methods: {},
-
-    });
-
-    types[name] = type;
-
-    return { name, type }
-
+  let [method, props] = extract(value, 'method');
+  Object.assign(method, props);
+  return method;
 };
 
-const getConstructor = (name) => {
+const bindPrototype = (constructor, parent, props) => {
+  for (let [key, value] of Object.entries(props)) {
+    if (isMethodDefinition(value)) {
+      let method = extractMethod(value);
+      constructor.methods[key] = method;
 
-    return new Function('newInstance', 'typeMap', `return function ${name}() {
+      if (key.slice(0, 2) == 'on') {
+        constructor.listeners[key.slice(2, 3).toLowerCase() + key.slice(3)] = method;
+      }
 
-        newInstance(this, arguments)
+      constructor.prototype[key] = function (...args) {
+        if (this.destroyed) return this;
+        currentCall.parent = parent;
+        currentCall.thisArg = this;
+        let result = method.apply(this, args);
+        let cancelListeners = result === Component.CANCEL; // currentCall.superCall is a bit tricky flag
+        // it allows to avoid to call listeners on each Component.super.{key}() call
+        // cancelListeners is here to allow method cancelation (eg: destroy cancelation)
 
-        // FIXME: if typeMap.has(this.constructor) === false : the prototype has been produced via classic [class] pattern
-        // console.log(this, typeMap.has(this.constructor))
-        // console.log(Object.getOwnPropertyNames(this.constructor.prototype))
+        if (currentCall.superCall === false && cancelListeners === false) {
+          let current = this.constructor;
 
-    }`)(newInstance, typeMap)
-
-};
-
-const getParent = (parent) => {
-
-    if (!parent)
-        return types.Component
-
-    if (typeof parent === 'string')
-        return types[parent]
-
-    if (typeof parent === 'function')
-        return typeMap.get(parent)
-
-    return parent
-
-};
-
-const getDescription = (description) => {
-
-    if (typeof description === 'string') {
-
-        if (description.includes(':')) {
-
-            let [name, parent] = description.split(/\s*:\s*/);
-
-            return { name, extends:parent }
-
-        }
-
-        return { name: description }
-
-    }
-
-    return description || {}
-
-};
-
-const ComponentDefinition = function (definition) {
-
-    // IMPORTANT: getParent() must ABSOLUTELY be called before newType, otherwise: "Uncaught TypeError: Cyclic __proto__ value"
-    let description = getDescription(definition.Component);
-
-    let parent = getParent(description.extends);
-
-    let { name, type } = newType(description.name);
-    let Constructor = getConstructor(name);
-
-    readonly(type, {
-
-        Constructor,
-        parent,
-        definition,
-        constructor: definition.constructor,
-
-    });
-
-    typeMap.set(Constructor, type);
-
-    if (parent)
-        Object.setPrototypeOf(Constructor.prototype, parent.Constructor.prototype);
-
-    readonly(Constructor, { type });
-    readonly(Constructor.prototype, { type });
-
-    for (let key of Object.getOwnPropertyNames(definition)) {
-
-        if (key === 'Component')
-            continue
-
-        if (key === 'constructor')
-            continue
-
-        let property = Object.getOwnPropertyDescriptor(definition, key);
-
-        if ('value' in property) {
-
-            let value = definition[key];
-
-            if (isMethodDefinition(value)) {
-
-                type.methods[key] = value;
-
-                Constructor.prototype[key] = getPrototypeMethod(type, key);
-
-            } else {
-
-                Constructor.prototype[key] = value;
-
+          while (current) {
+            if (current.listeners.hasOwnProperty(key)) {
+              current.listeners[key].apply(this);
             }
 
-        } else {
-
-            Object.defineProperty(Constructor.prototype, key, property);
-
+            current = current.parent;
+          }
         }
 
-
+        currentCall.superCall = false;
+        return result;
+      };
+    } else {
+      constructor.prototype[key] = Object.freeze(value);
     }
-
-    return Constructor
-
+  }
 };
 
-const RootComponent = ComponentDefinition({
+const define = (definitionName, definition) => {
+  let [identifier, parentIdentifier] = definitionName.split('::');
+  let parent = register.search(parentIdentifier) || Component;
+  let [name] = splitIdentifier(register.getAvailableIdentifier(identifier));
+  let constructor = getConstructor(name, lifecycle.newInstance);
+  identifier = register.add(identifier, constructor);
+  Object.setPrototypeOf(constructor.prototype, parent.prototype); // let { static:Static, ...props } = definition
+  // oups [rollup] does not parse the spread operator, so let's use [extract()] for the moment
 
-    Component: 'Component',
+  let [Static = {}, props = {}] = extract(definition, 'static');
+  readonly(constructor, Static);
+  readonly(constructor, {
+    parent,
+    identifier,
+    methods: {},
+    listeners: {}
+  });
+  bindPrototype(constructor, parent, props);
+  return constructor;
+};
 
-    dirty: false,
-    destroyed: false,
+function Component() {}
 
-    getIdString() {
+Component.CANCEL = Symbol('Component.CANCEL');
+Component.DIRTY = Symbol('Component.DIRTY');
+Component.methods = {};
+Component.listeners = {};
+bindPrototype(Component, null, basePrototype);
+let currentCall = {
+  parent: null,
+  thisArg: null,
+  superCall: false
+};
+Component.super = new Proxy({}, {
+  get(target, key) {
+    let {
+      parent,
+      thisArg
+    } = currentCall;
 
-        return `${this.type.name}:${this.uid}`
-
-    },
-
-    get idString() {
-
-        return this.getIdString()
-
-    },
-
-    constructor() {
-
-        this.props = {};
-        this.state = {};
-
-    },
-
-    setProps(propsChunk) {
-
-        Object.assign(this.props, propsChunk);
-
-    },
-
-    setState(stateChunk, { compare = true } = {}) {
-
-        if (isLocked(this)) {
-
-            postUpdate(() => this.setState(stateChunk, { compare }));
-
-            return
-
-        }
-
-        let { state } = this;
-
-        if (compare) {
-
-            for (let [key, value] of Object.entries(stateChunk)) {
-
-                if (state[key] !== value) {
-
-                    state[key] = value;
-                    this.dirty = true;
-
-                }
-
-            }
-
-        } else {
-
-            Object.assign(state, stateChunk);
-            this.dirty = true;
-
-        }
-
-    },
-
-    forceUpdate() {
-
-        this.dirty = true;
-
-    },
-
-    start: {
-
-        method() {},
-
-    },
-
-    destroy: {
-
-        reverse: true,
-        method() {
-
-            this.destroyed = true;
-            destroyInstance(this);
-
-        },
-
-    },
-
-    update: {
-
-        method() {}
-
-    },
-
-    lateUpdate: {
-
-        method() {}
-
-    },
+    while (parent) {
+      currentCall.superCall = true;
+      if (parent.prototype.hasOwnProperty(key)) return parent.prototype[key].bind(thisArg);
+      parent = parent.parent;
+    }
+  }
 
 });
-
-
-
-readonly(RootComponent, {
-
-    types,
-    instances,
-    frameAverage,
-    Def: ComponentDefinition,
-
+getter(Component, {
+  dict: () => register.dict
+});
+Object.defineProperties(Component, {
+  namespace: {
+    enumerable: true,
+    get: () => register.currentNamespace,
+    set: value => register.currentNamespace = value
+  }
+});
+readonly(Component, {
+  define,
+  Collection,
+  lifecycle,
+  instances: lifecycle.instances
 });
 
-getter(RootComponent, {
-
-    frame: () => frame,
-
-});
-
-export default RootComponent;
+export default Component;

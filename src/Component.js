@@ -1,278 +1,197 @@
 
-import { readonly, getter } from './utils.js'
-import { isMethodDefinition, getPrototypeMethod } from './method.js'
-import { instances, frameAverage, frame, newInstance, destroyInstance, isLocked, postUpdate } from './lifecycle.js'
+import { readonly, getter, extract } from './utils.js'
+import namespace, { splitIdentifier } from './namespace.js'
+import lifecycle from './lifecycle.js'
+import basePrototype from './basePrototype.js'
+import Collection from './Collection.js'
 
-// [name, constructor]
-let types = {}
-let typeCounter = 0
+const getConstructor = (name, newInstance) => (new Function('newInstance', `return function ${name} (){ newInstance(this, arguments) }`))(newInstance)
 
-// [constructor, type]
-let typeMap = new Map()
+const isMethodDefinition = (method) => {
 
-const newType = (name = 'Component') => {
+    if (typeof method === 'function')
+        return true
 
-    if (name in types) {
+    if (typeof method === 'object' && 'method' in method)
+        return true
 
-        let base = name
-        let index = 1
-
-        do {
-
-            name = `${base}_${index++}`
-
-        } while (name in types)
-
-    }
-
-    let type = readonly({}, {
-
-        uid: typeCounter++,
-        name,
-        methods: {},
-
-    })
-
-    types[name] = type
-
-    return { name, type }
+    return false
 
 }
 
-const getConstructor = (name) => {
+const extractMethod = (value) => {
 
-    return new Function('newInstance', 'typeMap', `return function ${name}() {
+    if (typeof value === 'function')
+        return value
 
-        newInstance(this, arguments)
+    // let { method, ...props } = value
+    let [method, props] = extract(value, 'method')
 
-        // FIXME: if typeMap.has(this.constructor) === false : the prototype has been produced via classic [class] pattern
-        // console.log(this, typeMap.has(this.constructor))
-        // console.log(Object.getOwnPropertyNames(this.constructor.prototype))
+    Object.assign(method, props)
 
-    }`)(newInstance, typeMap)
-
-}
-
-const getParent = (parent) => {
-
-    if (!parent)
-        return types.Component
-
-    if (typeof parent === 'string')
-        return types[parent]
-
-    if (typeof parent === 'function')
-        return typeMap.get(parent)
-
-    return parent
+    return method
 
 }
 
-const getDescription = (description) => {
+const bindPrototype = (constructor, parent, props) => {
 
-    if (typeof description === 'string') {
+    for (let [key, value] of Object.entries(props)) {
 
-        if (description.includes(':')) {
+        if (isMethodDefinition(value)) {
 
-            let [name, parent] = description.split(/\s*:\s*/)
+            let method = extractMethod(value)
 
-            return { name, extends:parent }
+            constructor.methods[key] = method
 
-        }
+            if (key.slice(0, 2) == 'on') {
 
-        return { name: description }
-
-    }
-
-    return description || {}
-
-}
-
-const ComponentDefinition = function (definition) {
-
-    // IMPORTANT: getParent() must ABSOLUTELY be called before newType, otherwise: "Uncaught TypeError: Cyclic __proto__ value"
-    let description = getDescription(definition.Component)
-
-    let parent = getParent(description.extends)
-
-    let { name, type } = newType(description.name)
-    let Constructor = getConstructor(name)
-
-    readonly(type, {
-
-        Constructor,
-        parent,
-        definition,
-        constructor: definition.constructor,
-
-    })
-
-    typeMap.set(Constructor, type)
-
-    if (parent)
-        Object.setPrototypeOf(Constructor.prototype, parent.Constructor.prototype)
-
-    readonly(Constructor, { type })
-    readonly(Constructor.prototype, { type })
-
-    for (let key of Object.getOwnPropertyNames(definition)) {
-
-        if (key === 'Component')
-            continue
-
-        if (key === 'constructor')
-            continue
-
-        let property = Object.getOwnPropertyDescriptor(definition, key)
-
-        if ('value' in property) {
-
-            let value = definition[key]
-
-            if (isMethodDefinition(value)) {
-
-                type.methods[key] = value
-
-                Constructor.prototype[key] = getPrototypeMethod(type, key)
-
-            } else {
-
-                Constructor.prototype[key] = value
+                constructor.listeners[key.slice(2, 3).toLowerCase() + key.slice(3)] = method
 
             }
 
-        } else {
+            constructor.prototype[key] = function(...args) {
 
-            Object.defineProperty(Constructor.prototype, key, property)
+                if (this.destroyed)
+                    return this
 
-        }
+                currentCall.parent = parent
+                currentCall.thisArg = this
 
+                let result = method.apply(this, args)
 
-    }
+                let cancelListeners = result === Component.CANCEL
 
-    return Constructor
+                // currentCall.superCall is a bit tricky flag
+                // it allows to avoid to call listeners on each Component.super.{key}() call
+                // cancelListeners is here to allow method cancelation (eg: destroy cancelation)
+                if (currentCall.superCall === false && cancelListeners === false) {
 
-}
+                    let current = this.constructor
 
-const RootComponent = ComponentDefinition({
+                    while (current) {
 
-    Component: 'Component',
+                        if (current.listeners.hasOwnProperty(key)) {
 
-    dirty: false,
-    destroyed: false,
+                            current.listeners[key].apply(this)
 
-    getIdString() {
+                        }
 
-        return `${this.type.name}:${this.uid}`
+                        current = current.parent
 
-    },
-
-    get idString() {
-
-        return this.getIdString()
-
-    },
-
-    constructor() {
-
-        this.props = {}
-        this.state = {}
-
-    },
-
-    setProps(propsChunk) {
-
-        Object.assign(this.props, propsChunk)
-
-    },
-
-    setState(stateChunk, { compare = true } = {}) {
-
-        if (isLocked(this)) {
-
-            postUpdate(() => this.setState(stateChunk, { compare }))
-
-            return
-
-        }
-
-        let { state } = this
-
-        if (compare) {
-
-            for (let [key, value] of Object.entries(stateChunk)) {
-
-                if (state[key] !== value) {
-
-                    state[key] = value
-                    this.dirty = true
+                    }
 
                 }
 
+                currentCall.superCall = false
+
+                return result
+
             }
 
         } else {
 
-            Object.assign(state, stateChunk)
-            this.dirty = true
+            constructor.prototype[key] = Object.freeze(value)
+
+        }
+
+    }
+
+}
+
+const define = (definitionName, definition) => {
+
+    let [identifier, parentIdentifier] = definitionName.split('::')
+
+    let parent = namespace.search(parentIdentifier) || Component
+
+    let [name] = splitIdentifier(namespace.getAvailableIdentifier(identifier))
+
+    let constructor = getConstructor(name, lifecycle.newInstance)
+
+    identifier = namespace.add(identifier, constructor)
+
+    Object.setPrototypeOf(constructor.prototype, parent.prototype)
+
+    // let { static:Static, ...props } = definition
+    // oups [rollup] does not parse the spread operator, so let's use [extract()] for the moment
+    let [Static = {}, props = {}] = extract(definition, 'static')
+
+    readonly(constructor, Static)
+
+    readonly(constructor, {
+
+        parent,
+        identifier,
+        methods: {},
+        listeners: {},
+        all: Collection(),
+
+    })
+
+    bindPrototype(constructor, parent, props)
+
+    return constructor
+
+}
+
+function Component() {}
+
+Component.CANCEL = Symbol('Component.CANCEL')
+Component.DIRTY = Symbol('Component.DIRTY')
+Component.methods = {}
+Component.listeners = {}
+bindPrototype(Component, null, basePrototype)
+
+
+
+let currentCall = { parent:null, thisArg:null, superCall:false }
+
+Component.super = new Proxy({}, {
+
+    get(target, key) {
+
+        let { parent, thisArg } = currentCall
+
+        while (parent) {
+
+            currentCall.superCall = true
+
+            if (parent.prototype.hasOwnProperty(key))
+                return parent.prototype[key].bind(thisArg)
+
+            parent = parent.parent
 
         }
 
     },
 
-    forceUpdate() {
+})
 
-        this.dirty = true
+getter(Component, {
 
-    },
+    dict: () => namespace.dict,
 
-    start: {
+})
 
-        method() {},
+Object.defineProperties(Component, {
 
-    },
+    namespace: {
 
-    destroy: {
-
-        reverse: true,
-        method() {
-
-            this.destroyed = true
-            destroyInstance(this)
-
-        },
-
-    },
-
-    update: {
-
-        method() {}
-
-    },
-
-    lateUpdate: {
-
-        method() {}
+        enumerable: true,
+        get: () => namespace.currentNamespace,
+        set: value => namespace.currentNamespace = value,
 
     },
 
 })
 
+readonly(Component, {
 
-
-readonly(RootComponent, {
-
-    types,
-    instances,
-    frameAverage,
-    Def: ComponentDefinition,
+    define,
+    Collection,
+    lifecycle,
+    instances: lifecycle.instances,
 
 })
 
-getter(RootComponent, {
-
-    frame: () => frame,
-
-})
-
-export default RootComponent
+export default Component

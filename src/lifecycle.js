@@ -1,103 +1,160 @@
 
-import { readonly, getLineage, Average } from './utils.js'
+import { readonly, Average } from './utils.js'
+import Component from './Component.js'
 
 let instances = new Set()
-
-let counter = 0
-let frame = 0
+let dirtyInstances = new Set()
+let stillDirtyInstances = new Set()
+let instanceCounter = 0
 
 const newInstance = (instance, args) => {
 
-    readonly(instance, { uid:counter++ })
+    instances.add(instance)
+    instance.constructor.all.add(instance)
 
-    for(let type of getLineage(instance.type)) {
+    readonly(instance, {
 
-        type.constructor.apply(instance, args)
+        uid: instanceCounter++,
+        props: {},
+        state: {},
+
+    })
+
+    instance.start(...args)
+
+    setDirty(instance)
+
+}
+
+const destroyInstance = (instance, fromBasePrototype = false) => {
+
+    if (fromBasePrototype === false)
+        instance.destroy()
+
+    readonly(instance, {
+
+        destroyed: true,
+        props: null,
+        state: null,
+
+    })
+
+    instances.delete(instance)
+    instance.constructor.all.delete(instance)
+
+}
+
+const setDirty = instance => {
+
+    if (locked === false) {
+
+        instance.dirty = true
+        dirtyInstances.add(instance)
+
+    } else {
+
+        onPostUpdate(() => setDirty(instance))
 
     }
 
-    instance.dirty = true
-    instance.start(...args)
-
-    instances.add(instance)
-
 }
 
-const destroyInstance = (instance) => {
+let locked = false
 
-    instances.delete(instance)
+const isLocked = () => locked
 
-}
+let onUpdateSet = new Set
+let onPostUpdateSet = new Set
 
-let lateUpdateSet = new Set()           // instances inside
-let postUpdateSet = new Set()           // callbacks inside
+const onUpdate = callback => onUpdateSet.add(callback)
+const onPostUpdate = callback => onPostUpdateSet.add(callback)
 
-const postUpdate = callback => postUpdateSet.add(callback)
+let updateAverage = new Average(60)
+let dirtyAverage = new Average(60)
 
-let currentUpdateComponent
-const isLocked = instance => currentUpdateComponent === instance
+let frame = 0
 
-let frameAverage = new Average({ length:60 })
+const update = () => {
 
-const frameUpdate = () => {
+    requestAnimationFrame(update)
 
     let t = performance.now()
 
-    requestAnimationFrame(frameUpdate)
+    for (let callback of onUpdateSet) {
 
+        callback()
 
+    }
 
-    // UPDATE
-    for (let instance of instances) {
+    locked = true
 
-        if (instance.dirty) {
+    dirtyAverage.next(dirtyInstances.size)
 
-            currentUpdateComponent = instance
+    for (let instance of dirtyInstances) {
 
-            instance.dirty = instance.update() === true
+        let stillDirty = instance.update() === Component.DIRTY
 
-            lateUpdateSet.add(instance)
+        if (stillDirty) {
+
+            stillDirtyInstances.add(instance)
+
+        } else {
+
+            instance.dirty = false
 
         }
 
     }
 
-    currentUpdateComponent = null
+    for (let instance of dirtyInstances) {
 
-    for (let callback of postUpdateSet)
-        callback()
-
-    postUpdateSet.clear()
-
-    // LATE UPDATE
-    for (let instance of lateUpdateSet) {
-
-        instance.lateUpdate()
+        instance.postUpdate()
 
     }
 
-    lateUpdateSet.clear()
+    dirtyInstances.clear()
 
+    // permutation
+    let tmp = stillDirtyInstances
+    stillDirtyInstances = dirtyInstances
+    dirtyInstances = tmp
 
+    locked = false
 
-    frameAverage.next(performance.now() - t)
+    for (let callback of onPostUpdateSet) {
+
+        callback()
+
+    }
 
     frame++
 
+    updateAverage.next(performance.now() - t)
+
 }
 
-frameUpdate()
+update()
 
-export {
+export default {
 
     instances,
-    frameAverage,
 
-    frame,
+    onUpdateSet,
+    onPostUpdateSet,
 
     newInstance,
     destroyInstance,
+    setDirty,
     isLocked,
-    postUpdate,
+    updateAverage,
+
+    get frame() { return frame },
+
+    average: {
+
+        get update() { return updateAverage.average },
+        get dirty() { return dirtyAverage.average },
+
+    },
 
 }

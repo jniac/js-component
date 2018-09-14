@@ -32,6 +32,38 @@ const getLineage = (target, descending = true) => {
 
 }
 
+// extract patch the spread operator:
+// let { a, b, ...rest } = object
+// <=>
+// let [a, b, rest] = extract(object, 'a', 'b')
+const extract = (object, ...keys) => {
+
+    let result = new Array(keys.length)
+    let rest = {}
+
+    for (let key in object) {
+
+        let index = keys.indexOf(key)
+
+        if (index >= 0) {
+
+            result[index] = object[key]
+
+        } else {
+
+            rest[key] = object[key]
+
+        }
+
+    }
+
+    result.push(rest)
+
+    return result
+
+}
+
+
 
 function Average({ length = 10, value = 0 } = {}) {
 
@@ -76,6 +108,7 @@ export {
     readonly,
     getter,
     getLineage,
+    extract,
     Average,
 
 }
