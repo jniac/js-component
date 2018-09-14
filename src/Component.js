@@ -124,6 +124,7 @@ const define = (definitionName, definition) => {
         identifier,
         methods: {},
         listeners: {},
+        all: Collection(),
 
     })
 

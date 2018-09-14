@@ -10,6 +10,7 @@ let instanceCounter = 0
 const newInstance = (instance, args) => {
 
     instances.add(instance)
+    instance.constructor.all.add(instance)
 
     readonly(instance, {
 
@@ -37,6 +38,7 @@ const destroyInstance = (instance, fromBasePrototype = false) => {
     })
 
     instances.delete(instance)
+    instance.constructor.all.delete(instance)
 
 }
 
