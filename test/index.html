@@ -16,12 +16,19 @@
 
         <pre>global variables:</pre>
 
+        <br><br>
+        <h1>Stage</h1>
         <div id="stage"></div>
+
+        <br><br>
+        <h1>Source</h1>
+        <pre id="source"></pre>
 
         <script type="text/javascript">
 
             var select = document.querySelector('select')
             var pre = document.querySelector('pre')
+            var preSource = document.querySelector('pre#source')
             var stage = document.querySelector('#stage')
 
             let hash = location.hash.slice(1)
@@ -39,6 +46,14 @@
             }
 
             let scriptName = select.value
+
+            fetch(`./scripts/${scriptName}`).then(async (response) => {
+
+                let text = await response.text()
+
+                preSource.innerHTML = text
+
+            })
 
             let script = document.createElement('script')
             script.type = 'module'
