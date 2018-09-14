@@ -1,10 +1,8 @@
 # js-component
-minimal code for Component behavior
+minimal code for Component behavior:
 
-[online demo](https://rawgit.com/jniac/js-component/master/test/index.html) (served by the excellent [rawgit.com](https://rawgit.com/))
 
 ```javascript
-
 import Component from '../../src/Component.js'
 
 Component.namespace = 'readme.test'
@@ -34,8 +32,9 @@ const Button = Component.define('Button', {
 
 new Button('make a clone', () => new Button('clone', () => alert('clone!')))
 new Button('kill the last button', () => Button.all.biggest(i => i.uid).destroy())
-
 ```
+### [online demo](https://rawgit.com/jniac/js-component/master/test/index.html)
+(served by the excellent [rawgit.com](https://rawgit.com/))
 
 
 ### build
