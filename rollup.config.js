@@ -1,5 +1,5 @@
 // import path from 'path'
-import fs from 'fs'
+// import fs from 'fs'
 
 function date() {
 
@@ -42,9 +42,7 @@ function banner() {
 
 export default {
 	input: './src/Component.js',
-	plugins: [
-		babel(),
-	],
+	plugins: [],
 	// external: [path.resolve('./src/event.js')],
 	// sourceMap: true,
 	output: [
