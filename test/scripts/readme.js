@@ -1,7 +1,3 @@
-# js-component
-minimal code for Component behavior
-
-```javascript
 
 import Component from '../../src/Component.js'
 
@@ -33,14 +29,9 @@ const Button = Component.define('Button', {
 new Button('make a clone', () => new Button('clone'))
 new Button('kill the last clone', () => Button.all.bigger(i => i.uid).destroy())
 
-```
+export {
 
+    Component,
+    Button,
 
-### build
-```shell
-# regular:
-rollup -c
-# minified:
-rollup -c --min
-```
-et voilà!
+}
