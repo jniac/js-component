@@ -29,6 +29,16 @@ export default {
 
     setDirty() {
 
+        // the component will update on the next update cycle
+
+        lifecycle.setDirty(this)
+
+    },
+
+    forceUpdate() {
+
+        // same as setDirty, but more the name is more meaningfull
+        
         lifecycle.setDirty(this)
 
     },
