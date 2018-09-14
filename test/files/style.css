@@ -1,0 +1,54 @@
+* { margin: 0; }
+
+body {
+    padding: 32px;
+    background-color: #f9f9f9;
+    font-family: monospace;
+}
+
+body > * + * {
+    margin-top: 10px;
+}
+
+pre {
+    padding: 16px;
+    border: 1px solid #ddd;
+    background-color: white;
+    tab-size: 4;
+}
+
+#stage {
+    border: 1px solid #ddd;
+    background-color: white;
+    flex-wrap: wrap;
+    padding: 10px
+}
+
+#stage > * {
+    margin: 10px;
+}
+
+.block {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    padding: 20px;
+}
+
+.block > .close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: white;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.menu {
+    display: flex;
+    flex-direction: column;
+}
+
+.menu > * + * {
+    margin-top: 5px;
+}

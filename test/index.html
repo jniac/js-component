@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <title></title>
+        <link rel="stylesheet" href="files/style.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/96/three.js" charset="utf-8"></script>
+    </head>
+    <body>
+        <select class="" name="">
+            <option>button.js</option>
+            <option>wip.js</option>
+            <option>base.js</option>
+        </select>
+
+        <pre>global variables:</pre>
+
+        <div id="stage"></div>
+
+        <script type="text/javascript">
+
+            var select = document.querySelector('select')
+            var pre = document.querySelector('pre')
+            var stage = document.querySelector('#stage')
+
+            let hash = location.hash.slice(1)
+
+            if (hash)
+                select.value = hash
+
+            select.onchange = event => {
+
+                let { value } = event.target
+
+                location.href = location.href.split('#')[0] + `#${value}`
+                location.reload()
+
+            }
+
+            let scriptName = select.value
+
+            let script = document.createElement('script')
+            script.type = 'module'
+            script.innerHTML = `
+
+                import * as index from './scripts/${scriptName}'
+
+                pre.append('\\n\\n')
+
+                for (let key of Object.getOwnPropertyNames(index)) {
+
+                    pre.append('\\t' + key + '\\n')
+
+                }
+
+                Object.assign(window, index)
+
+            `
+
+            document.body.append(script)
+
+        </script>
+    </body>
+</html>
