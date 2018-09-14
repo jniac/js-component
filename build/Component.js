@@ -463,7 +463,7 @@ function Collection(instances) {
 
     const union = other => Collection([...set, ...other]);
 
-    const bigger = (callback) => {
+    const biggest = (callback) => {
 
         let max = -Infinity;
         let result = null;
@@ -485,7 +485,7 @@ function Collection(instances) {
 
     };
 
-    let proxy = new Proxy({ union, bigger }, {
+    let proxy = new Proxy({ union, biggest }, {
 
         get(target, key) {
 
