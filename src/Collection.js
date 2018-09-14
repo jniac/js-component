@@ -21,7 +21,29 @@ export default function Collection(instances) {
 
     const union = other => Collection([...set, ...other])
 
-    let proxy = new Proxy({ union }, {
+    const bigger = (callback) => {
+
+        let max = -Infinity
+        let result = null
+
+        for (let item of set) {
+
+            let number = callback(item)
+
+            if (number > max) {
+
+                max = number
+                result = item
+
+            }
+
+        }
+
+        return result
+
+    }
+
+    let proxy = new Proxy({ union, bigger }, {
 
         get(target, key) {
 
