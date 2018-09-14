@@ -27,7 +27,7 @@ const Button = Component.define('Button', {
 })
 
 new Button('make a clone', () => new Button('clone'))
-new Button('kill the last clone', () => Button.all.biggest(i => i.uid).destroy())
+new Button('kill the last button', () => Button.all.biggest(i => i.uid).destroy())
 
 export {
 
