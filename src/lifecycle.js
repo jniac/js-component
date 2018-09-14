@@ -22,6 +22,8 @@ const newInstance = (instance, args) => {
 
     instance.start(...args)
 
+    setDirty(instance)
+
 }
 
 const destroyInstance = (instance, fromBasePrototype = false) => {
