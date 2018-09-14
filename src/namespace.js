@@ -22,7 +22,7 @@ let search = (identifier) => {
     if (namespace)
         return null
 
-    identifier = buildIdentifier(currentNamespace, name)
+    identifier = buildIdentifier(name, currentNamespace)
 
     if (dict.hasOwnProperty(identifier))
         return dict[identifier]
