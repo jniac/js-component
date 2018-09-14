@@ -3,26 +3,26 @@ minimal code for Component behavior
 
 ```javascript
 
-import Component from './Component.js'
+import Component from '../../src/Component.js'
 
 const Button = Component.Def({
 
     Component: 'Button',
 
-    start(label) {
+    on__start(label, onclick) {
 
-        let div = document.createElement('div')
-        div.innerHTML = label
-        div.onclick = () => alert(`label: ${label}`)
-        document.body.append(div)
+        let button = document.createElement('button')
+        button.innerHTML = label
+        button.onclick = onclick
+        document.body.append(button)
 
-        this.setProps({ div })
+        this.setProps({ button })
 
     },
 
     destroy() {
 
-        let { div } = this.props
+        let { button } = this.props
 
         button.remove()
 
@@ -30,7 +30,35 @@ const Button = Component.Def({
 
 })
 
-let button = new Button('a nice button')
+
+
+let clones = new Set
+
+const CloneButton = Component.Def({
+
+    Component: 'CloneButton:Button',
+
+    start(label, onclick) {
+
+        Component.super(`${label} #${this.uid}`, onclick)
+
+        clones.add(this)
+
+    },
+
+    destroy() {
+
+        clones.delete(this)
+
+    },
+
+})
+
+const makeClone = () => new CloneButton('clone', makeClone)
+
+new Button('alert(nice!)', () => alert(`nice!`))
+new Button('clear', () => Component.Collection(clones).destroy())
+new Button('make a clone', makeClone)
 
 ```
 
