@@ -19,9 +19,14 @@ export default function Collection(instances) {
 
     let set = new Set(instances)
 
-    let proxy = new Proxy({}, {
+    const union = other => Collection([...set, ...other])
+
+    let proxy = new Proxy({ union }, {
 
         get(target, key) {
+
+            if (key in target)
+                return target[key]
 
             if (key in set)
                 return set[key].bind(set)
