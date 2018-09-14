@@ -1,6 +1,8 @@
 # js-component
 minimal code for Component behavior
 
+[online demo](https://rawgit.com/jniac/js-component/master/test/index.html) (served by the excellent [rawgit.com](https://rawgit.com/))
+
 ```javascript
 
 import Component from '../../src/Component.js'
