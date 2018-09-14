@@ -70,6 +70,7 @@ const onUpdate = callback => onUpdateSet.add(callback)
 const onPostUpdate = callback => onPostUpdateSet.add(callback)
 
 let updateAverage = new Average(60)
+let dirtyAverage = new Average(60)
 
 let frame = 0
 
@@ -86,6 +87,8 @@ const update = () => {
     }
 
     locked = true
+
+    dirtyAverage.next(dirtyInstances.size)
 
     for (let instance of dirtyInstances) {
 
@@ -135,7 +138,6 @@ update()
 export default {
 
     instances,
-    dirtyInstances,
 
     onUpdateSet,
     onPostUpdateSet,
@@ -147,5 +149,12 @@ export default {
     updateAverage,
 
     get frame() { return frame },
+
+    average: {
+
+        get update() { return updateAverage.average },
+        get dirty() { return dirtyAverage.average },
+
+    },
 
 }
