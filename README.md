@@ -32,7 +32,7 @@ const Button = Component.define('Button', {
 
 })
 
-new Button('make a clone', () => new Button('clone'))
+new Button('make a clone', () => new Button('clone', () => alert('clone!')))
 new Button('kill the last button', () => Button.all.biggest(i => i.uid).destroy())
 
 ```
