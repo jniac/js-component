@@ -39,7 +39,10 @@ export const Button = Component.define('Button', {
         let { label } = this
         let { extraLabel } = this.state
 
-        this.element.innerHTML = `${label} (${extraLabel})`
+        if (extraLabel)
+            extraLabel = ` (${extraLabel})`
+
+        this.element.innerHTML = `${label}${extraLabel}`
 
     },
 
@@ -144,7 +147,7 @@ const makeClone = () => {
 
 export let clearButton = new BigButton('clear', () => CloneButton.clones.destroy())
 
-mainButton = new Button('press', makeClone)
+mainButton = new Button('press to generate a random button', makeClone)
 
 export let cloneButton = new CloneButton('clone', makeClone)
 
